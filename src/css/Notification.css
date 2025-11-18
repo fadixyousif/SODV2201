@@ -1,0 +1,50 @@
+.notification-toast-container {
+  top: 1.5rem !important;
+  right: 1.5rem !important;
+}
+
+.notification-toast {
+  min-width: 320px;
+  font-size: 1.05rem;
+  border-radius: 1rem !important;
+  box-shadow: 0 6px 32px 0 rgba(0,0,0,0.18), 0 1.5px 4px 0 rgba(0,0,0,0.12);
+  border: none;
+  overflow: hidden;
+  opacity: 0;
+  transform: translateY(-30px) scale(0.98);
+  animation: toast-in 0.5s cubic-bezier(.4,1.6,.6,1) forwards;
+  transition: opacity 0.3s, transform 0.3s;
+}
+
+/* Animate out (when hiding) */
+.notification-toast.hide,
+.notification-toast[aria-hidden="true"] {
+  opacity: 0 !important;
+  transform: translateY(-30px) scale(0.98) !important;
+  transition: opacity 0.3s, transform 0.3s;
+}
+
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(-30px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.notification-toast-header {
+  background: rgba(255,255,255,0.12);
+  font-weight: 600;
+  border-bottom: none;
+  border-radius: 1rem 1rem 0 0 !important;
+}
+
+.notification-toast-body {
+  padding-top: 0.9rem;
+  padding-bottom: 0.9rem;
+  font-size: 1.08rem;
+  letter-spacing: 0.01em;
+}

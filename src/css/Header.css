@@ -1,0 +1,15 @@
+:root{
+  --nav-selected-color: #0d6efd; /* bootstrap primary by default */
+}
+
+/* Make selected nav-link a different color and optionally bold */
+.nav-link.selected {
+  color: var(--nav-selected-color) !important;
+  font-weight: 600;
+  text-decoration: underline;
+}
+
+/* Optional: hover state to match selected color */
+.nav-link:hover {
+  color: var(--nav-selected-color);
+}
