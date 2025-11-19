@@ -85,3 +85,44 @@ export function isOrderPlacementValid(customerName, email, phone, items) {
   // if none of the checks failed return success
   return { success: true };
 }
+
+// reservation validation
+export function isReservationValid(customerName, email, phone, reservationDate, numberOfGuests) {
+  // check customerName length between 3 and 100 characters
+  if (!customerName || customerName.length < 3 || customerName.length > 100) {
+      return { message: 'Customer name must be between 3 and 100 characters', success: false };
+  }
+
+  // check email format
+  if (!isValidEmail(email)) {
+      return { message: 'Invalid email format', success: false };
+  }
+
+  // check phone number format
+  const phoneRegex = /^[0-9+\-\s()]{7,30}$/;
+  if (!phone || !phoneRegex.test(phone)) {
+      return { message: 'Invalid phone number format', success: false };
+  }
+
+  // check reservationDate is a valid date in the future
+  const resDate = new Date(reservationDate);
+  const now = new Date();
+  if (isNaN(resDate.getTime()) || resDate <= now) {
+      return { message: 'Reservation date must be a valid future date', success: false };
+  }
+
+  // check time if it's correct HH:MM format
+  const timeRegex = /^([0-1]\d|2[0-3]):([0-5]\d)$/;
+  const timePart = reservationDate.split(' ')[1];
+  if (!timePart || !timeRegex.test(timePart)) {
+      return { message: 'Invalid time format', success: false };
+  }
+
+  // check numberOfGuests is a positive integer
+  if (isNaN(numberOfGuests) || numberOfGuests <= 0 || !Number.isInteger(numberOfGuests)) {
+      return { message: 'Number of guests must be a positive integer', success: false };
+  }
+
+  // if none of the checks failed return success
+  return { success: true };
+}
