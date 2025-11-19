@@ -29,3 +29,26 @@ export function isRegisterationValid(fullname, password, email) {
 
   return { success: true };
 }
+
+// menu item validation
+export function isMenuItemValid(name, categoryId, price, description, available) {
+    if (!name || name.length < 3 || name.length > 100) {
+        return { message: 'Item name must be between 3 and 100 characters', success: false };
+    }
+    if (isNaN(categoryId) || categoryId <= 0) {
+        return { message: 'Invalid category ID', success: false };
+    }
+
+    if (isNaN(price) || price < 0) {
+        return { message: 'Price must be a non-negative number', success: false };
+    }
+
+    if (description && description.length > 500) {
+        return { message: 'Description cannot exceed 500 characters', success: false };
+    }
+
+    if (typeof available !== 'boolean') {
+        return { message: 'Available must be a boolean value', success: false };
+    }
+    return { success: true };
+}

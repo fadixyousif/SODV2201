@@ -20,7 +20,8 @@ CREATE TABLE accounts (
 GO
 /* Orders Table */
 CREATE TABLE Orders (
-    id NVARCHAR(50) PRIMARY KEY,
+    id INT IDENTITY(1,1) PRIMARY KEY,
+    accountId INT NULL FOREIGN KEY REFERENCES accounts(id),
     customerName NVARCHAR(100) NOT NULL,
     type NVARCHAR(50) NOT NULL,
     status NVARCHAR(50) NOT NULL DEFAULT 'pending',
@@ -33,7 +34,8 @@ CREATE TABLE Orders (
 GO
 /* Reservations Table */
 CREATE TABLE Reservations (
-    id NVARCHAR(50) PRIMARY KEY,
+    id INT IDENTITY(1,1) PRIMARY KEY,
+    accountId INT NULL FOREIGN KEY REFERENCES accounts(id),
     customerName NVARCHAR(100) NOT NULL,
     email NVARCHAR(100) NOT NULL,
     phone NVARCHAR(30) NOT NULL,
@@ -48,14 +50,14 @@ CREATE TABLE Reservations (
 GO
 /* Categories Table */
 CREATE TABLE Categories (
-    id INT PRIMARY KEY IDENTITY(1,1),
+    id INT IDENTITY(1,1) PRIMARY KEY,
     name NVARCHAR(50) NOT NULL
 );
 
 GO
 /* MenuItems Table */
 CREATE TABLE MenuItems (
-    id INT PRIMARY KEY,
+    id INT IDENTITY(1,1) PRIMARY KEY,
     name NVARCHAR(100) NOT NULL,
     categoryId INT NOT NULL FOREIGN KEY REFERENCES Categories(id),
     price DECIMAL(10,2) NOT NULL,
