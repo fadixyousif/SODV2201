@@ -1,7 +1,9 @@
 // import necessary modules and components
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Container, Nav, Navbar, Button, Dropdown } from 'react-bootstrap';
 import { NavLink } from 'react-router-dom';
+import axios from 'axios';
+import verifyAuth from '../scripts/verifyAuth';
 
 // import authentication modals
 import AuthModals from './AuthModals';
@@ -12,7 +14,27 @@ function Header() {
   const [showLogin, setShowLogin] = useState(false);
   const [showRegister, setShowRegister] = useState(false);
   // Placeholder for user info (replace with real auth logic)
-  const user = loadFromStorage("currentUser");
+  const user = loadFromStorage("authData") || null;
+  const [userData, setUserData] = useState({});
+
+  // Verify user authentication status on component mount
+  useEffect(() => {
+      const token = user && user.token ? user.token : null;
+      if (!token) {
+        console.log('No auth token available, skipping verify request.');
+        return;
+      }
+
+      (async () => {
+        const result = await verifyAuth(token);
+        if (result && result.success) {
+          console.log('User is authenticated');
+          setUserData(result.user || result.data?.user || {});
+        } else {
+          console.error('Error verifying user status:', result);
+        }
+      })();
+  }, []);
 
   // render the header component
   return (
@@ -33,10 +55,10 @@ function Header() {
           <Nav.Link as={NavLink} to="/administrator" className={({ isActive }) => 'nav-link' + (isActive ? ' selected' : '')}>Administrator</Nav.Link>
         </Nav>
         <div style={{ flex: 1, display: 'flex', justifyContent: 'flex-end', alignItems: 'center' }}>
-          {user ? (
+          {userData && Object.keys(userData).length > 0 ? (
             <Dropdown align="end">
               <Dropdown.Toggle variant="outline-secondary" id="dropdown-user">
-                {user.name}
+                {userData.fullname || "User"}
               </Dropdown.Toggle>
               <Dropdown.Menu>
                 <Dropdown.Item onClick={() => {

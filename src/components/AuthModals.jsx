@@ -1,6 +1,7 @@
 // import necessary libraries and components
 import { useState } from "react";
 import { Modal, Button, Form } from "react-bootstrap";
+import axios from "axios";
 
 // import Notification component
 import Notification from "./Notification";
@@ -50,24 +51,58 @@ function AuthModals({ showLogin, setShowLogin, showRegister, setShowRegister }) 
     // Validate login form
     if (!validateLogin()) return;
 
-    // check credentials
-    console.log('registerEmail:', registerEmail);
-    console.log('registerPassword:', registerPassword);
-    if (registerEmail === loginEmail && registerPassword === loginPassword) {
-        console.log("Logging in with temporary registered user");
+    axios.post("http://localhost:5000/api/auth/login", {
+      email: loginEmail,
+      password: loginPassword
+    })
+    .then(response => {
+      const data = response.data;
+      if (data.success) {
         // Successful login
         setNotification({
-        type: "success",
-        message: "Login successful!",
-      });
-      // Save current user
-      saveToStorage("currentUser", {
-        email: loginEmail,
-        name: registerName,
-      });
-      // Close login modal
-      setShowLogin(false);
-    }
+          type: "success",
+          message: "Login successful!",
+        });
+
+        // Save auth token to local storage
+        saveToStorage("authData", {
+          token: data.token,
+        });
+        // Close login modal
+        setShowLogin(false);
+      } else {
+        // Login failed
+        setNotification({
+          type: "danger",
+          message: data.message || "Login failed. Please try again.",
+        });
+      }
+    })
+    .catch(error => {
+      console.error("Login error:", error);
+      // Axios attaches the server response (for non-2xx) on `error.response`
+      if (error.response) {
+        const { status, data } = error.response;
+        // Prefer server-provided message if available
+        const serverMessage = data && (data.message || data.error || JSON.stringify(data));
+        const message = serverMessage || "An error occurred. Please try again.";
+        if (status === 401 || status === 400) {
+          // Unauthorized (401) - show server message
+          setNotification({ type: "danger", message });
+          return;
+        }
+        // Generic server error handling
+        setNotification({ type: "danger", message });
+      }
+      else if (error.request) {
+        // Request made but no response received
+        setNotification({ type: "danger", message: "No response from server. Check your network." });
+      }
+      else {
+        // Something else happened
+        setNotification({ type: "danger", message: "An unexpected error occurred. Please try again." });
+      }
+    });
   }
 
   function validateRegister() {
@@ -89,11 +124,6 @@ function AuthModals({ showLogin, setShowLogin, showRegister, setShowRegister }) 
         errors.push("Password must be at least 6 characters long.");
     }
 
-    // check if user already exists
-    if (authData[registerEmail]) {
-        errors.push("User already exists.");
-    }
-
     // Set notification
     if (errors.length > 0) {
         setNotification({
@@ -106,21 +136,64 @@ function AuthModals({ showLogin, setShowLogin, showRegister, setShowRegister }) 
     return errors.length === 0;
   }
 
+  /* {
+	"message": "User with this email already exists",
+	"success": false
+}*/
+
   function handleRegister(e) {
     // Prevent form submission
     e.preventDefault();
     // Validate registration form
     if (!validateRegister()) return;
 
-    // notify success
-    setNotification({
-        type: "success",
-        message: "Registration successful!",
+    axios.post("http://localhost:5000/api/auth/register", {
+      fullname: registerName,
+      email: registerEmail,
+      password: registerPassword
+    })
+    .then(response => {
+      const data = response.data;
+      if (data.success) {
+        // Successful registration
+        setNotification({
+          type: "success",
+          message: "Registration successful!",
+        });
+        // Close register modal and open login modal
+        setShowRegister(false);
+        setShowLogin(true);
+      } else {
+        // Registration failed
+        setNotification({
+          type: "danger",
+          message: data.message || "Registration failed. Please try again.",
+        });
+      }
+    })
+    .catch(error => {
+      console.error("Registration error:", error);
+      // Axios attaches the server response (for non-2xx) on `error.response`
+      if (error.response) {
+        const { status, data } = error.response;
+        // Prefer server-provided message if available
+        const serverMessage = data && (data.message || data.error || JSON.stringify(data));
+        const message = serverMessage || "An error occurred. Please try again.";
+        if (status === 409 || status === 500 || status === 400) {
+          // Conflict (409) - show server message
+          setNotification({ type: "danger", message });
+          return;
+        }
+        // Generic server error handling
+        setNotification({ type: "danger", message });
+      } else if (error.request) {
+        // Request made but no response received
+        setNotification({ type: "danger", message: "No response from server. Check your network." });
+      } else {
+        // Something else happened while setting up the request
+        setNotification({ type: "danger", message: "An error occurred. Please try again." });
+      }
     });
-
-    // Close register modal and open login modal
-    setShowRegister(false);
-    setShowLogin(true);
   }
 
   return (
