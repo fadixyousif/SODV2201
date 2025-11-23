@@ -128,15 +128,19 @@ router.post('/login', async (req, res) => {
 
 router.post('/verify', verifyToken, async (req, res) => {
     try {
-        console.log("Token data:", req.tokenData);
         // we get user data to cofirm user still exists
         const result = await sql.query`
             SELECT id, fullname, email, role FROM accounts WHERE email = ${req.tokenData.email}
         `;
+        // check if user exists if not return 401
         if (result.recordset.length === 0) {
             return res.status(401).json({ message: "User not found", success: false });
         }
+
+        // return success with user data
         const user = result.recordset[0];
+
+        // successful verification
         return res.status(200).json({ 
             message: "Token is valid", 
             success: true,
