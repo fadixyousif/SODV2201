@@ -2,7 +2,7 @@ import express from 'express';
 import crypto from 'crypto';
 import jwt from 'jsonwebtoken';
 import sql from '../db.js';
-import { hashPassword } from '../modules/authentication.js';
+import { hashPassword, verifyToken } from '../modules/authentication.js';
 import { isRegisterationValid, isValidEmail } from '../modules/validation.js';
 import { registerCheckUserExists } from '../modules/queries.js';
 
@@ -125,5 +125,31 @@ router.post('/login', async (req, res) => {
         return res.status(500).send({ message: 'Internal server error', success: false });
     }
 });
+
+router.post('/verify', verifyToken, async (req, res) => {
+    try {
+        console.log("Token data:", req.tokenData);
+        // we get user data to cofirm user still exists
+        const result = await sql.query`
+            SELECT id, fullname, email, role FROM accounts WHERE email = ${req.tokenData.email}
+        `;
+        if (result.recordset.length === 0) {
+            return res.status(401).json({ message: "User not found", success: false });
+        }
+        const user = result.recordset[0];
+        return res.status(200).json({ 
+            message: "Token is valid", 
+            success: true,
+            user: {
+                fullname: user.fullname,
+                email: user.email,
+            }
+        });
+    } catch (error) {
+        console.error("Token verification error:", error);
+        return res.status(500).json({ message: "Internal server error", success: false });
+    }
+});
+
 
 export default router;
