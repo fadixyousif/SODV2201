@@ -45,11 +45,15 @@ router.post('/register', async (req, res) => {
             });
         }
 
-        // insert the new user into the database
-        const result = await sql.query`
-        INSERT INTO accounts (fullname, email, password, salt)
-        VALUES (${fullname}, ${email}, ${hashedPassword}, ${salt})
-        `;
+        // insert the new user into the database (parameterized)
+        const insertReq = new sql.Request();
+        insertReq.input('fullname', sql.VarChar(100), fullname);
+        insertReq.input('email', sql.VarChar(255), email);
+        insertReq.input('password', sql.VarChar(255), hashedPassword);
+        insertReq.input('salt', sql.VarChar(255), salt);
+        const result = await insertReq.query(
+            'INSERT INTO accounts (fullname, email, password, salt) VALUES (@fullname, @email, @password, @salt)'
+        );
 
         // check if the insert was successful
         if (result.rowsAffected[0] === 0) {
@@ -95,10 +99,10 @@ router.post('/login', async (req, res) => {
     }
 
     try {
-        // Query the database for the user with the provided email
-        const result = await sql.query`
-            SELECT * FROM accounts WHERE email = ${email}
-        `;
+        // Query the database for the user with the provided email (parameterized)
+        const selectReq = new sql.Request();
+        selectReq.input('email', sql.VarChar(255), email);
+        const result = await selectReq.query('SELECT * FROM accounts WHERE email = @email');
         // Check if user exists
         if (result.recordset.length === 0) {
             return res.status(401).send({ message: 'Invalid email or password', success: false });
@@ -129,9 +133,9 @@ router.post('/login', async (req, res) => {
 router.post('/verify', verifyToken, async (req, res) => {
     try {
         // we get user data to cofirm user still exists
-        const result = await sql.query`
-            SELECT id, fullname, email, role FROM accounts WHERE email = ${req.tokenData.email}
-        `;
+        const selectReq = new sql.Request();
+        selectReq.input('email', sql.VarChar(255), req.tokenData.email);
+        const result = await selectReq.query('SELECT id, fullname, email, role FROM accounts WHERE email = @email');
         // check if user exists if not return 401
         if (result.recordset.length === 0) {
             return res.status(401).json({ message: "User not found", success: false });
@@ -147,6 +151,7 @@ router.post('/verify', verifyToken, async (req, res) => {
             user: {
                 fullname: user.fullname,
                 email: user.email,
+                role: user.role
             }
         });
     } catch (error) {

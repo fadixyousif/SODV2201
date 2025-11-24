@@ -111,13 +111,6 @@ export function isReservationValid(customerName, email, phone, reservationDate, 
       return { message: 'Reservation date must be a valid future date', success: false };
   }
 
-  // check time if it's correct HH:MM format
-  const timeRegex = /^([0-1]\d|2[0-3]):([0-5]\d)$/;
-  const timePart = reservationDate.split(' ')[1];
-  if (!timePart || !timeRegex.test(timePart)) {
-      return { message: 'Invalid time format', success: false };
-  }
-
   // check numberOfGuests is a positive integer
   if (isNaN(numberOfGuests) || numberOfGuests <= 0 || !Number.isInteger(numberOfGuests)) {
       return { message: 'Number of guests must be a positive integer', success: false };

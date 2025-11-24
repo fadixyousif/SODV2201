@@ -11,8 +11,9 @@ router.get('/items', async (req, res) => {
     // fetch all menu items with their categories
     try {
         // query to get menu items with category names
-        const result = await sql.query`
-            SELECT 
+        const listReq = new sql.Request();
+        const result = await listReq.query(
+            `SELECT 
                 mi.id,
                 mi.name,
                 c.name AS category,
@@ -21,8 +22,8 @@ router.get('/items', async (req, res) => {
                 mi.imageUrl,
                 mi.available
             FROM MenuItems mi
-            JOIN Categories c ON mi.categoryId = c.id
-        `;
+            JOIN Categories c ON mi.categoryId = c.id`
+        );
 
         // check if any no menu items found if yes return 404
         if (result.recordset.length === 0) {
@@ -85,9 +86,9 @@ router.post('/create/category', verifyToken, async (req, res) => {
         }
 
         // insert new category
-        const result = await sql.query`
-            INSERT INTO Categories (name) VALUES (${name})
-        `;
+        const insertCatReq = new sql.Request();
+        insertCatReq.input('name', sql.NVarChar(50), name);
+        const result = await insertCatReq.query('INSERT INTO Categories (name) VALUES (@name)');
 
         // check if insert was successful if rowsAffected is 0 then return error
         if (result.rowsAffected[0] === 0) {
@@ -148,10 +149,16 @@ router.post('/create/item', verifyToken, async (req, res) => {
             });
         }
         // insert new menu item
-        const result = await sql.query`
-            INSERT INTO MenuItems (name, categoryId, price, description, imageUrl, available)
-            VALUES (${name}, ${categoryId}, ${price}, ${description || null}, ${imageUrl || null}, ${available})
-        `;
+        const insertItemReq = new sql.Request();
+        insertItemReq.input('name', sql.NVarChar(100), name);
+        insertItemReq.input('categoryId', sql.Int, Number(categoryId));
+        insertItemReq.input('price', sql.Decimal(10,2), price);
+        insertItemReq.input('description', sql.NVarChar(300), description || null);
+        insertItemReq.input('imageUrl', sql.NVarChar(300), imageUrl || null);
+        insertItemReq.input('available', sql.Bit, available ? 1 : 0);
+        const result = await insertItemReq.query(
+            'INSERT INTO MenuItems (name, categoryId, price, description, imageUrl, available) VALUES (@name, @categoryId, @price, @description, @imageUrl, @available)'
+        );
 
         // check if insert was successful
         if (result.rowsAffected[0] === 0) {
@@ -212,9 +219,9 @@ router.delete('/category/delete/:id', verifyToken, async (req, res) => {
             });
         }
         // delete the category
-        const result = await sql.query`
-            DELETE FROM Categories WHERE id = ${categoryId}
-        `;
+        const delCatReq = new sql.Request();
+        delCatReq.input('id', sql.Int, categoryId);
+        const result = await delCatReq.query('DELETE FROM Categories WHERE id = @id');
 
         // check if delete was successful
         if (result.rowsAffected[0] === 0) {
@@ -261,9 +268,9 @@ router.delete('/item/delete/:id', verifyToken, async (req, res) => {
 
     try {
         // delete the menu item
-        const result = await sql.query`
-            DELETE FROM MenuItems WHERE id = ${itemId}
-        `;
+        const delItemReq = new sql.Request();
+        delItemReq.input('id', sql.Int, itemId);
+        const result = await delItemReq.query('DELETE FROM MenuItems WHERE id = @id');
 
         // check if delete was successful
         if (result.rowsAffected[0] === 0) {
@@ -325,16 +332,17 @@ router.put('/update/:id', verifyToken, async (req, res) => {
         }
 
         // update the menu item
-        const result = await sql.query`
-            UPDATE MenuItems
-            SET name = ${name},
-                categoryId = ${categoryId},
-                price = ${price},
-                description = ${description || null},
-                imageUrl = ${imageUrl || null},
-                available = ${available}
-            WHERE id = ${itemId}
-        `;
+        const updReq = new sql.Request();
+        updReq.input('name', sql.NVarChar(100), name);
+        updReq.input('categoryId', sql.Int, Number(categoryId));
+        updReq.input('price', sql.Decimal(10,2), price);
+        updReq.input('description', sql.NVarChar(300), description || null);
+        updReq.input('imageUrl', sql.NVarChar(300), imageUrl || null);
+        updReq.input('available', sql.Bit, available ? 1 : 0);
+        updReq.input('id', sql.Int, itemId);
+        const result = await updReq.query(
+            'UPDATE MenuItems SET name = @name, categoryId = @categoryId, price = @price, description = @description, imageUrl = @imageUrl, available = @available WHERE id = @id'
+        );
         // check if update was successful
         if (result.rowsAffected[0] === 0) {
             return res.status(404).json({

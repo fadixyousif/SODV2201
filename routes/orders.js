@@ -44,35 +44,32 @@ router.post('/place', async (req, res) => {
     }
     try {
         // insert new order
-        const result = await sql.query`
-            INSERT INTO Orders (customerName, email, phone, items, status, accountId)
-            VALUES (${customerName}, ${email}, ${phone}, ${JSON.stringify(items)}, 'pending', ${req.tokenData ? req.tokenData.id : 'NULL'})
-        `;
+        const insertReq = new sql.Request();
+        insertReq.input('accountId', sql.Int, req.tokenData ? req.tokenData.id : null);
+        insertReq.input('customerName', sql.NVarChar(100), customerName);
+        insertReq.input('email', sql.NVarChar(255), email);
+        insertReq.input('phone', sql.NVarChar(30), phone);
+        insertReq.input('items', sql.NVarChar(sql.MAX), JSON.stringify(items));
+        insertReq.input('status', sql.NVarChar(50), 'pending');
+        const result = await insertReq.query(
+            'INSERT INTO Orders (accountId, customerName, email, phone, items, status) VALUES (@accountId, @customerName, @email, @phone, @items, @status)'
+        );
 
         if (result.rowsAffected[0] === 0) {
-            return res.status(500).json({
-                success: false,
-                message: 'Failed to place order'
-            });
+            return res.status(500).json({ success: false, message: 'Failed to place order' });
         }
 
         // successful order placement
-        return res.status(201).json({
-            success: true,
-            message: 'Order placed successfully'
-        });
+        return res.status(201).json({ success: true, message: 'Order placed successfully' });
     } catch (error) {
         // handle errors
         console.error('Error placing order:', error);
-        return res.status(500).json({
-            success: false,
-            message: 'Internal server error'
-        });
+        return res.status(500).json({ success: false, message: 'Internal server error' });
     }
 });
 
 // get all orders not requiring authentication using order id and only guest user is allowed
-router.get('/:id', async (req, res) => {
+router.get('/id/:id', async (req, res) => {
     const orderId = Number(req.params.id);
     // validate orderId
     if (isNaN(orderId) || orderId <= 0) {
@@ -84,9 +81,9 @@ router.get('/:id', async (req, res) => {
 
     try {
         // fetch the order for guest user (accountId IS NULL)
-        const result = await sql.query`
-            SELECT * FROM Orders WHERE id = ${orderId} AND accountId IS NULL
-        `;
+        const reqQ = new sql.Request();
+        reqQ.input('id', sql.Int, orderId);
+        const result = await reqQ.query('SELECT * FROM Orders WHERE id = @id AND accountId IS NULL');
 
         // check if order found if not send 404
         if (result.recordset.length === 0) {
@@ -114,9 +111,9 @@ router.get('/:id', async (req, res) => {
 // get own orders requiring authentication
 router.get('/myorders', verifyToken, async (req, res) => {
     try {
-        const result = await sql.query`
-            SELECT * FROM Orders WHERE accountId = ${req.tokenData.id}
-        `;
+        const reqQ = new sql.Request();
+        reqQ.input('accountId', sql.Int, req.tokenData.id);
+        const result = await reqQ.query('SELECT * FROM Orders WHERE accountId = @accountId');
         // check if any orders found
         if (result.recordset.length === 0) {
             return res.status(500).json({
@@ -153,10 +150,10 @@ router.delete('/cancel/:id', verifyToken, async (req, res) => {
 
     try {
         // update the order status to 'cancelled'
-        const result = await sql.query`
-            UPDATE Orders SET status = 'cancelled' 
-            WHERE id = ${orderId} AND accountId = ${req.tokenData.id}
-        `;
+        const updReq = new sql.Request();
+        updReq.input('id', sql.Int, orderId);
+        updReq.input('accountId', sql.Int, req.tokenData.id);
+        const result = await updReq.query('UPDATE Orders SET status = @status WHERE id = @id AND accountId = @accountId', { status: 'cancelled' });
 
         // check if update was successful
         if (result.rowsAffected[0] === 0) {
@@ -191,9 +188,8 @@ router.get('/all', verifyToken, async (req, res) => {
     }
 
     try {
-        const result = await sql.query`
-            SELECT * FROM Orders
-        `;
+        const reqQ = new sql.Request();
+        const result = await reqQ.query('SELECT * FROM Orders');
         // check if any orders found
         if (result.recordset.length === 0) {
             return res.status(500).json({
@@ -247,9 +243,10 @@ router.put('/update/:id', verifyToken, async (req, res) => {
 
     try {
         // update the order status
-        const result = await sql.query`
-            UPDATE Orders SET status = ${status.toLowerCase()} WHERE id = ${orderId}
-        `;
+        const updReq = new sql.Request();
+        updReq.input('status', sql.NVarChar(50), status.toLowerCase());
+        updReq.input('id', sql.Int, orderId);
+        const result = await updReq.query('UPDATE Orders SET status = @status WHERE id = @id');
 
         // check if update was successful if not send 404
         if (result.rowsAffected[0] === 0) {
