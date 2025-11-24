@@ -1,6 +1,7 @@
 // import necessary modules and components
 import { useState, useEffect, useContext } from "react";
 import { Button, Badge } from 'react-bootstrap';
+import axios from "axios";
 
 // import Needed components
 import Header from "../components/Header";
@@ -35,11 +36,23 @@ function Menu() {
 
   // load menu items from storage using useEffect
   useEffect(() => {
+    // GET /api/menu/items
     // load menu items from storage
-    const storedMenu = loadFromStorage("menuItems");
-    if (storedMenu) {
-      setMenuItems(storedMenu);
-    }
+    const categories = {}
+    axios.get("http://localhost:5000/api/menu/items")
+      .then(response => {
+        console.log("Menu items fetched:", response.data);
+        for (const item of response.data.items) {
+          if (!categories[item.category]) {
+            categories[item.category] = [];
+          }
+          categories[item.category].push(item);
+        }
+        setMenuItems(categories);
+      })
+      .catch(error => {
+        console.error("Error fetching menu items:", error);
+      });
   }, []);
 
   // Filter logic

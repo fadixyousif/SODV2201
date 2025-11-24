@@ -1,6 +1,7 @@
 // import necessary modules and components
 import { useState, useContext, useEffect } from "react";
 import { Button, Badge, Container, Row, Col, Card } from 'react-bootstrap';
+import axios from "axios";
 
 // import custom components and context
 import Header from '../components/Header';
@@ -19,26 +20,25 @@ function Home() {
   const { cartItems } = useContext(CartContext);
 
   // load menu items from local storage using useEffect
-  useEffect(() => {
-    // Load menu items from local storage
-    const menuItemsData = loadFromStorage('menuItems');
+    useEffect(() => {
+      // GET /api/menu/items -> use items array and attach categoryKey from API
+      async function loadMenu() {
+        try {
+          const resp = await axios.get('http://localhost:5000/api/menu/items');
 
-    // check if menuItemsData is an object and convert it to an array
-    if (menuItemsData && typeof menuItemsData === 'object') {
-      // Convert the object to an array of items
-      const itemsArray = Object.entries(menuItemsData).flatMap(([category, items]) =>
-        Array.isArray(items)
-          ? items.map(item => ({
+          const items = resp.data.items || resp.data || [];
+          const itemsWithCategoryKey = items.map(item => ({
             ...item,
-            categoryKey: category
-          }))
-          : []
-      );
+            categoryKey: item.category || item.categoryKey || 'Uncategorized'
+          }));
 
-      // get the last 4 items added
-      setMenuItems(itemsArray.slice(0, 4));
-    }
-  }, []);
+          setMenuItems(itemsWithCategoryKey.slice(0, 4));
+        } catch (error) {
+          console.error('Error fetching menu items:', error);
+        }
+      }
+      loadMenu();
+    }, []);
 
 
 

@@ -3,6 +3,14 @@ import { Card, Row, Col, Button, Modal, Form } from 'react-bootstrap';
 
 // Filter Modal Component
 export function FilterModal({ show, onHide, allCategories, filterCategories, setFilterCategories, priceRange, setPriceRange, priceSort, setPriceSort }) {
+  
+  function resetFilters() {
+    setFilterCategories([]);
+    setPriceRange({ min: '', max: '' });
+    setPriceSort('');
+    onHide();
+  }
+
   // render the filter modal
   return (
     /* 
@@ -92,8 +100,8 @@ export function FilterModal({ show, onHide, allCategories, filterCategories, set
         <Button variant="secondary" onClick={onHide}>
           Close
         </Button>
-        <Button variant="primary" onClick={onHide}>
-          Apply
+        <Button variant="primary" onClick={resetFilters}>
+          Reset Filters
         </Button>
       </Modal.Footer>
     </Modal>

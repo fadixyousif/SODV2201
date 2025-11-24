@@ -1,7 +1,8 @@
 // import necessary modules and components
 import { useEffect, useState, useContext } from 'react';
 import { loadFromStorage, saveToStorage } from '../scripts/StorageSaver';
-import { Card, Button, Row, Col, Badge } from 'react-bootstrap';
+import { Card, Button, Row, Col, Badge, Form, Spinner } from 'react-bootstrap';
+import verifyAuth from '../scripts/verifyAuth';
 
 // import custom components
 import Notification from '../components/Notification';
@@ -11,9 +12,14 @@ import Cart from '../components/Cart';
 
 // import cart context
 import CartContext from '../scripts/cartContext';
+import axios from 'axios';
 
 function Reservations() {
   // state variables
+  const [isUserAuthenticated, setIsUserAuthenticated] = useState({
+    success: false,
+    token: ""
+  });
   const [editingReservation, setEditingReservation] = useState(false);
   const [notification, setNotification] = useState(false);
   const [newReservation, setNewReservation] = useState({
@@ -31,20 +37,120 @@ function Reservations() {
     }
   });
   const [myReservations, setMyReservations] = useState([]);
+  const [publicReservationId, setPublicReservationId] = useState("");
   
   // cart context
   const { cartItems } = useContext(CartContext);
   const [showCart, setShowCart] = useState(false);
 
-  // load reservations from local storage using useEffect
+  // load reservations from server on component mount
   useEffect(() => {
-    // Load reservations from local storage
-    const loadReservations = loadFromStorage('reservations');
-    // If there are stored reservations, set them to state
-    if (loadReservations) {
-      setMyReservations(loadReservations);
+    // Load reservations for authenticated user
+    async function loadReservations() {
+      // Verify authentication
+      const authResult = await verifyAuth();
+
+      if (authResult && authResult.success) {
+        setIsUserAuthenticated({
+          success: true,
+          token: authResult.token
+        });
+
+        try {
+          const resp = await axios.get("http://localhost:5000/api/reservations/myreservations", {
+            headers: { Authorization: `Bearer ${authResult.token}` }
+          });
+
+          setMyReservations(resp.data.reservations.map(reservation => ({
+            id: reservation.id,
+            customerName: reservation.customerName,
+            email: reservation.email,
+            phone: reservation.phone,
+            date: reservation.date.replace(/T00:00:00\.000Z$/, ''),
+            time: reservation.time.replace(/^1970-01-01T/, '').replace(/:00\.000Z$/, ''),
+            guests: reservation.guests,
+            specialRequest: reservation.specialRequest,
+            status: {
+              response: reservation.status_response,
+              reason: reservation.status_reason
+            }
+          })));
+        } catch (error) {
+          
+          // Log full axios error plus any server response body for debugging
+          console.error("Reservations fetch error:", error);
+
+          // Show notification only if error is not "No reservations found"
+          if (error.response) {
+            // Only show error if it's not the "No reservations found" message
+            if (error.response.data?.message !== 'No reservations found') {
+              setNotification({ message: error.response.data?.message || JSON.stringify(error.response.data), type: 'danger' });
+            }
+          // Network or other error
+          } else if (error.request) {
+            setNotification({ message: 'No response from server. Check your network.', type: 'danger' });
+          // Other unexpected error
+          } else {
+            setNotification({ message: error.message || 'An unexpected error occurred.', type: 'danger' });
+          }
+        }
+      }
     }
+    loadReservations();
   }, []);
+
+  // Public lookup by reservation id (no auth required)
+  async function fetchPublicReservationById(e) {
+    if (e && e.preventDefault) e.preventDefault();
+
+    // Validate input
+    if (!publicReservationId) {
+      setNotification({ message: 'Please enter a reservation ID.', type: 'danger' });
+      return;
+    }
+
+    // get reservation from server by id
+    try {
+      const resp = await axios.get(`http://localhost:5000/api/reservations/id/${encodeURIComponent(publicReservationId)}`);
+
+      // initalize reservation data
+      const reservation = resp.data.reservation || resp.data.data || resp.data;
+
+      // check if reservation found
+      if (!reservation) {
+
+        // show not found notification
+        setNotification({ message: 'Reservation not found.', type: 'danger' });
+        setMyReservations([]);
+      } else {
+
+        // set reservation data
+        setMyReservations([{
+          id: reservation.id,
+          customerName: reservation.customerName,
+          email: reservation.email,
+          phone: reservation.phone,
+          date: reservation.date.replace(/T00:00:00\.000Z$/, ''),
+          time: reservation.time.replace(/^1970-01-01T/, '').replace(/:00\.000Z$/, ''),
+          guests: reservation.guests,
+          specialRequest: reservation.specialRequest,
+          status: {
+            response: reservation.status_response,
+            reason: reservation.status_reason
+          }
+        }]);
+      }
+    } catch (error) {
+      if (error.response) {
+        setNotification({ message: error.response.data?.message || JSON.stringify(error.response.data), type: 'danger' });
+      } else if (error.request) {
+        setNotification({ message: 'No response from server. Check your network.', type: 'danger' });
+      } else {
+        setNotification({ message: error.message || 'An unexpected error occurred.', type: 'danger' });
+      }
+      setMyReservations([]);
+    }
+  }
 
   // form validation function
   function formValidation() {
@@ -117,53 +223,120 @@ function Reservations() {
       return;
     }
 
-    // Add unique ID to the new reservation
-    const newReservationWithId = { ...newReservation, id: Math.floor(Math.random() * 1e9) };
-    const updatedReservations = [...myReservations, newReservationWithId];
-    // Update state with new reservation
-    setMyReservations(updatedReservations);
-    // Clear the form
-    saveToStorage('reservations', updatedReservations);
-    setNewReservation({
-      id: "",
-      customerName: "",
-      email: "",
-      phone: "",
-      date: "",
-      time: "",
-      guests: "",
-      specialRequest: "",
-      status: {
-        response: "pending",
-        reason: ""
+    // // Add unique ID to the new reservation
+    // const newReservationWithId = { ...newReservation, id: Math.floor(Math.random() * 1e9) };
+    // const updatedReservations = [...myReservations, newReservationWithId];
+    // // Update state with new reservation
+    // setMyReservations(updatedReservations);
+    // // Clear the form
+    // saveToStorage('reservations', updatedReservations);
+    // setNewReservation({
+    //   id: "",
+    //   customerName: "",
+    //   email: "",
+    //   phone: "",
+    //   date: "",
+    //   time: "",
+    //   guests: "",
+    //   specialRequest: "",
+    //   status: {
+    //     response: "pending",
+    //     reason: ""
+    //   }
+    // });
+
+    // POST /api/reservations/create
+
+    async function postReservation() {
+      try {
+        let resp = null;
+        let newReservationData = {
+          customerName: newReservation.customerName,
+          email: newReservation.email,
+          phone: newReservation.phone,
+          reservationDate: newReservation.date,
+          time: newReservation.time,
+          numberOfGuests: Number(newReservation.guests),
+          specialRequest: newReservation.specialRequest
+        }
+        if (isUserAuthenticated.success) {
+          resp = await axios.post("http://localhost:5000/api/reservations/create", newReservationData, {
+            headers: { Authorization: `Bearer ${isUserAuthenticated.token}` }
+          });
+        } else {
+          resp = await axios.post("http://localhost:5000/api/reservations/create", newReservationData);
+        }
+
+        if(resp.data && resp.data.success) {
+          setNotification({
+            message: resp.data.message || 'Reservation created successfully!',
+            type: 'success'
+          });
+          // Clear the form
+          setNewReservation({
+            id: "",
+            customerName: "",
+            email: "",
+            phone: "",
+            date: "",
+            time: "",
+            guests: "",
+            specialRequest: "",
+            status: {
+              response: "pending",
+              reason: ""
+            }
+          });
+        } else {
+          setNotification({
+            message: resp.data.message || 'Failed to create reservation. Please try again.',
+            type: 'danger'
+          });
+        }
+      } catch (error) {
+        console.error("Error creating reservation:", error);
+        if (error.response) {
+          setNotification({ message: error.response.data?.message || JSON.stringify(error.response.data), type: 'danger' });
+        } else if (error.request) {
+          setNotification({ message: 'No response from server. Check your network.', type: 'danger' });
+        } else {
+          setNotification({ message: 'An unexpected error occurred.', type: 'danger' });
+        }
       }
-    });
+    }
+    postReservation();
   };
 
   // delete reservation function
   function deleteReservation(id) {
-    // Filter out the reservation to be deleted
-    const updatedReservations = myReservations.filter(reservation => reservation.id !== id);
-    // Update state and local storage
-    setMyReservations(updatedReservations);
-    saveToStorage('reservations', updatedReservations);
-    // Close the edit modal
-    setEditingReservation(false);
-  }
+    // cancel reservation function
+    async function cancelReservation() {
+      try {
+        // include auth token if user is authenticated
+        if (isUserAuthenticated.success) {
+          const response = await axios.delete(`http://localhost:5000/api/reservations/cancel/${encodeURIComponent(id)}`, {
+            headers: { Authorization: `Bearer ${isUserAuthenticated.token}` }
+          });
 
-  // save edited reservation function
-  function handleSaveReservation(updatedReservation) {
-    // Update the reservation in state and local storage
-    const updatedReservations = myReservations.map(reservation =>
-      // check for matching ID and update then replace else return original
-      reservation.id === updatedReservation.id ? updatedReservation : reservation
-    );
+          setNotification({
+            message: response.data?.message || 'Reservation cancelled successfully.',
+            type: 'success'
+          });
+        } else {
+          const response = await axios.delete(`http://localhost:5000/api/reservations/cancel/${encodeURIComponent(id)}`);
 
-    // Update state and local storage
-    setMyReservations(updatedReservations);
-    saveToStorage('reservations', updatedReservations);
-    // Close the edit modal
-    setEditingReservation(false);
+          setNotification({
+            message: response.data?.message || 'Reservation cancelled successfully.',
+            type: 'success'
+          });
+        }  
+        setEditingReservation(false);
+        set  
+      } catch (error) {
+        console.error("Error deleting reservation:", error);
+      }
+    }
+    cancelReservation();
   }
 
   // Header reservation list, new reservation form, cart button, notification, and edit modal components
@@ -173,8 +346,28 @@ function Reservations() {
         <div className="text-center" style={{ padding: '2rem' }}>
           <div>
             <h1>My Reservations</h1>
+            {!isUserAuthenticated.success && (
+              <div className="mb-4">
+                <h5>Lookup a reservation</h5>
+                <Form onSubmit={fetchPublicReservationById} className="d-flex justify-content-center align-items-center gap-2">
+                  <Form.Control
+                    type="text"
+                    placeholder="Enter reservation ID"
+                    value={publicReservationId}
+                    onChange={(e) => setPublicReservationId(e.target.value)}
+                    style={{ maxWidth: 320 }}
+                  />
+                  <Button type="submit" variant="primary" onClick={fetchPublicReservationById}>
+                    Fetch Reservation
+                  </Button>
+                  <Button variant="outline-secondary" onClick={() => { setPublicReservationId(''); setMyReservations([]); setNotification(false); }}>
+                    Clear
+                  </Button>
+                </Form>
+              </div>
+            )}
             {myReservations.length === 0 ? (
-              <p>No reservations found.</p>
+              isUserAuthenticated.success ? <p>No reservations found. Please make a new reservation below.</p> : ""
             ) : (
               <Row className="justify-content-center g-4">
                 {myReservations.map((reservation, index) => (
@@ -307,7 +500,7 @@ function Reservations() {
         {editingReservation && (
           <ReservationEditModal
             reservation={editingReservation}
-            onSave={handleSaveReservation}
+            isUserAuthenticated={isUserAuthenticated}
             onCancel={() => setEditingReservation(false)}
             deleteReservation={deleteReservation}
           />

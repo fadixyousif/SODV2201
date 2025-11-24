@@ -2,7 +2,6 @@
 import { useState, useEffect } from 'react';
 import { Container, Nav, Navbar, Button, Dropdown } from 'react-bootstrap';
 import { NavLink } from 'react-router-dom';
-import axios from 'axios';
 import verifyAuth from '../scripts/verifyAuth';
 
 // import authentication modals
@@ -14,26 +13,19 @@ function Header() {
   const [showLogin, setShowLogin] = useState(false);
   const [showRegister, setShowRegister] = useState(false);
   // Placeholder for user info (replace with real auth logic)
-  const user = loadFromStorage("authData") || null;
   const [userData, setUserData] = useState({});
 
   // Verify user authentication status on component mount
   useEffect(() => {
-      const token = user && user.token ? user.token : null;
-      if (!token) {
-        console.log('No auth token available, skipping verify request.');
-        return;
+    async function getUserData() {
+      const result = await verifyAuth();
+      if (result && result.success) {
+        setUserData(result.user || result.data?.user || {});
+      } else {
+        console.error('Error verifying user status:', result);
       }
-
-      (async () => {
-        const result = await verifyAuth(token);
-        if (result && result.success) {
-          console.log('User is authenticated');
-          setUserData(result.user || result.data?.user || {});
-        } else {
-          console.error('Error verifying user status:', result);
-        }
-      })();
+    }
+    getUserData();
   }, []);
 
   // render the header component
@@ -52,7 +44,6 @@ function Header() {
           <Nav.Link as={NavLink} to="/menu" className={({ isActive }) => 'nav-link' + (isActive ? ' selected' : '')}>Menu</Nav.Link>
           <Nav.Link as={NavLink} to="/reservations" className={({ isActive }) => 'nav-link' + (isActive ? ' selected' : '')}>Reservations</Nav.Link>
           <Nav.Link as={NavLink} to="/orders" className={({ isActive }) => 'nav-link' + (isActive ? ' selected' : '')}>Orders</Nav.Link>
-          <Nav.Link as={NavLink} to="/administrator" className={({ isActive }) => 'nav-link' + (isActive ? ' selected' : '')}>Administrator</Nav.Link>
         </Nav>
         <div style={{ flex: 1, display: 'flex', justifyContent: 'flex-end', alignItems: 'center' }}>
           {userData && Object.keys(userData).length > 0 ? (
@@ -61,8 +52,11 @@ function Header() {
                 {userData.fullname || "User"}
               </Dropdown.Toggle>
               <Dropdown.Menu>
+                {userData.role === 'administrator' && (
+                  <Dropdown.Item as={NavLink} to="/admin">Admin Panel</Dropdown.Item>
+                )}
                 <Dropdown.Item onClick={() => {
-                  saveToStorage("currentUser", null);
+                  saveToStorage("authData", null);
                   window.location.reload();
                 }}>Logout</Dropdown.Item>
               </Dropdown.Menu>

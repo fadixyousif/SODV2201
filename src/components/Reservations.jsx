@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { Modal, Button, Form, Row, Col } from 'react-bootstrap';
 
 // Reservation Edit Modal Component
-export function ReservationEditModal({ reservation, onSave, onCancel, deleteReservation }) {
+export function ReservationEditModal({ reservation, onSave, onCancel, deleteReservation, isUserAuthenticated }) {
   // state to manage edited reservation data
   const [editedReservation, setEditedReservation] = useState(reservation);
 
@@ -117,14 +117,11 @@ export function ReservationEditModal({ reservation, onSave, onCancel, deleteRese
               />
             </Form.Group>
             <div className="d-flex gap-2 justify-content-end">
-              <Button variant="primary" type="submit">
-                Save Changes
-              </Button>
               <Button variant="secondary" onClick={onCancel} type="button">
-                Cancel
+                Close
               </Button>
               <Button variant="danger" onClick={() => deleteReservation(editedReservation.id)} type="button">
-                Delete
+                Cancel Reservation
               </Button>
             </div>
           </div>
