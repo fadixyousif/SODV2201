@@ -22,11 +22,12 @@ function Header() {
       if (result && result.success) {
         setUserData(result.user || result.data?.user || {});
       } else {
+        setUserData({});
         console.error('Error verifying user status:', result);
       }
     }
     getUserData();
-  }, []);
+  }, [showLogin, showRegister]);
 
   // render the header component
   return (
@@ -53,7 +54,7 @@ function Header() {
               </Dropdown.Toggle>
               <Dropdown.Menu>
                 {userData.role === 'administrator' && (
-                  <Dropdown.Item as={NavLink} to="/admin">Admin Panel</Dropdown.Item>
+                  <Dropdown.Item as={NavLink} to="/administrator">Admin Panel</Dropdown.Item>
                 )}
                 <Dropdown.Item onClick={() => {
                   saveToStorage("authData", null);

@@ -8,7 +8,7 @@ import Sidebar from "../../components/Administrator/Sidebar";
 import AdministratorComp from "../../components/Administrator/Administrator";
 
 // import storage utility functions
-import { loadFromStorage } from "../../scripts/StorageSaver";
+import verifyAuth from "../../scripts/verifyAuth";
 
 
 export default function Administrator() {
@@ -21,20 +21,28 @@ export default function Administrator() {
 
   // useEffect to check authentication status
   useEffect(() => {
-    // simulate loading delay
-    const timer = setTimeout(() => {
-      // check for authentication data in local storage
-      const authData = loadFromStorage("currentUser");
-      // set authentication state based on presence of authData
-      if (!authData) {
-        setIsAuthenticated(false);
-      } else {
-        setIsAuthenticated(true);
+    let mounted = true;
+    async function checkAuth() {
+      try {
+        const [result] = await Promise.all([
+          verifyAuth(),
+          new Promise((r) => setTimeout(r, 1000))
+        ]);
+        const user = result?.user || result?.data?.user || null;
+        const isAdmin = result && result.success && (user?.role === 'administrator' || user?.role === 'admin');
+        if (mounted) {
+          setIsAuthenticated(!!isAdmin);
+          setLoading(false);
+        }
+      } catch (err) {
+        if (mounted) {
+          setIsAuthenticated(false);
+          setLoading(false);
+        }
       }
-      // set loading to false after check
-      setLoading(false);
-    }, 500);
-    return () => clearTimeout(timer);
+    }
+    checkAuth();
+    return () => { mounted = false; };
   }, []);
 
   // render loading spinner if still loading
