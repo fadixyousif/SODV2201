@@ -1,9 +1,8 @@
 // import necessary libraries and components
 import { useEffect, useState } from "react";
 import { Row, Col, Card, Badge } from "react-bootstrap";
-
-// import storage utility functions
-import { loadFromStorage } from "../../scripts/StorageSaver";
+import axios from 'axios';
+import verifyAuth from "../../scripts/verifyAuth";
 
 // Recent Order Card Component
 export function RecentOrderCard({ order }) {
@@ -169,30 +168,70 @@ export function Administrator() {
 
   // useEffect to load dashboard data
   useEffect(() => {
-    // Only fetch dashboard data, not auth or loading
-    const orders = loadFromStorage("orders") || [];
-    const reservations = loadFromStorage("reservations") || [];
-    const menuItems = loadFromStorage("menuItems") || {};
+    async function fetchDashboard() {
+      const authResult = await verifyAuth();
+      const token = authResult?.token || null;
+      const headers = token ? { Authorization: `Bearer ${token}` } : {};
 
-    // get recent orders, reservations, and newest menu items
-    const recentOrders = orders.slice(-5).reverse();
-    const recentReservations = reservations.slice(-5).reverse();
+      try {
+        // Always fetch menu items from API
+        const menuResp = await axios.get("http://localhost:5000/api/menu/items");
 
-    // flatten menu items and get newest 6 items
-    const allMenuItems = [];
-    Object.keys(menuItems).forEach(category => {
-      menuItems[category].forEach(item => {
-        allMenuItems.push({ ...item, category });
-      });
-    });
-    const newestMenuItems = allMenuItems.slice(-6).reverse();
+        const categories = {};
+        for (const item of (menuResp.data.items || menuResp.data || [])) {
+          if (!categories[item.category]) categories[item.category] = [];
+          categories[item.category].push(item);
+        }
 
-    // update dashboard data state
-    setDashboardData({
-      recentOrders,
-      recentReservations,
-      newestMenuItems
-    });
+        const allMenuItems = [];
+        Object.keys(categories).forEach(category => {
+          categories[category].forEach(item => {
+            allMenuItems.push({ ...item, category });
+          });
+        });
+        const newestMenuItems = allMenuItems.slice(-6).reverse();
+
+        // Fetch orders/reservations only when authenticated
+        let recentOrders = [];
+        let recentReservations = [];
+        if (token) {
+          // fetch orders and reservations
+          const ordersResp = await axios.get("http://localhost:5000/api/orders/all", { headers });
+          const reservationsResp = await axios.get("http://localhost:5000/api/reservations/all", { headers });
+
+          // extract orders and reservations data
+          const orders = ordersResp.data?.orders || ordersResp.data?.items || ordersResp.data || [];
+          let reservations = reservationsResp.data?.reservations || reservationsResp.data?.items || reservationsResp.data || [];
+
+          // Convert order status since database use status_ fields instead of status object
+          reservations = reservations.map(r => ({
+            ...r,
+            status: r.status && typeof r.status === 'object'
+              ? r.status
+              : (r.status_response ? { response: r.status_response, reason: r.status_reason } : r.status)
+          }));
+
+          recentOrders = orders.slice(-5).reverse();
+          recentReservations = reservations.slice(-5).reverse();
+        }
+
+        // update dashboard data state
+        setDashboardData({
+          recentOrders,
+          recentReservations,
+          newestMenuItems
+        });
+      } catch (error) {
+        console.error("Error fetching dashboard data:", error);
+        setDashboardData({
+          recentOrders: [],
+          recentReservations: [],
+          newestMenuItems: []
+        });
+      }
+    }
+
+    fetchDashboard();
   }, []);
 
   // render the administrator dashboard

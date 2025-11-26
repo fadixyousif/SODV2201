@@ -1,29 +1,49 @@
 // import necessary modules and components
 import { useState } from 'react';
 import { Button, Card, Row, Col } from 'react-bootstrap';
+import axios from 'axios';
+import verifyAuth from '../../../scripts/verifyAuth';
+import Notification from '../../Notification';
 
 // import ReservationEditModal component
 import ReservationEditModal from './ReservationEditModal';
 
 // Reservations List Component
-function ReservationsList({ reservations, handleUpdate }) {
+function ReservationsList({ reservations, setReservations }) {
     // state to manage selected reservation for editing
     const [selectedReservation, setSelectedReservation] = useState(false);
 
     // function to handle reservation changes
-    function changeReservation(newReservation) {
-        // update the reservations list with the modified reservation
-        const updatedReservations = reservations.map((reservation) => {
-            // match reservation by id and update
-            if (reservation.id === newReservation.id) {
-                return { ...reservation, ...newReservation };
-            }
-            return reservation;
-        });
-        
-        // call the handleUpdate prop to update parent state
-        handleUpdate(updatedReservations);
-        setSelectedReservation(false);
+    const [notification, setNotification] = useState(null);
+
+    async function changeReservation(newReservation) {
+        // attempt to update reservation on server (admin)
+        const authResult = await verifyAuth();
+        const token = authResult?.token || null;
+        if (!token) {
+            setNotification({ type: 'danger', message: 'Admin authentication required to update reservations.' });
+            return;
+        }
+
+        try {
+            const payload = { status: newReservation.status?.response };
+            if (newReservation.status?.reason) payload.reason = newReservation.status.reason;
+
+            await axios.put(`http://localhost:5000/api/reservations/update/${newReservation.id}`, payload, { headers: { Authorization: `Bearer ${token}` } });
+
+            // update the reservations list with the modified reservation
+            const updatedReservations = reservations.map((reservation) => (reservation.id === newReservation.id ? { ...reservation, ...newReservation } : reservation));
+
+            // call the handleUpdate prop to update parent state
+            setReservations(updatedReservations);
+            setSelectedReservation(false);
+
+            setNotification({ type: 'success', message: 'Reservation updated successfully.' });
+        } catch (error) {
+            console.error('Error updating reservation:', error);
+            const msg = error.response?.data?.message || error.message || 'Failed to update reservation.';
+            setNotification({ type: 'danger', message: msg });
+        }
     }
 
     // render the reservations list
@@ -70,6 +90,9 @@ function ReservationsList({ reservations, handleUpdate }) {
                                                 {reservation.status && reservation.status.response ? reservation.status.response : ''}
                                             </span>
                                         </div>
+                                        <div className="mb-1" style={{ fontSize: '0.97em' }}><span style={{ fontWeight: 600, color: '#bfc4cc' }}>ID:</span> {reservation.id}</div>
+                                        {/* reservation Accountid */}
+                                        <div className="mb-1" style={{ fontSize: '0.97em' }}><span style={{ fontWeight: 600, color: '#bfc4cc' }}>Account ID:</span> {reservation.accountId}</div>
                                         <div className="mb-1 text-muted" style={{ fontSize: '0.97em' }}>{reservation.email}</div>
                                         <div className="mb-1" style={{ fontSize: '0.97em' }}><span style={{ fontWeight: 600, color: '#bfc4cc' }}>Phone:</span> {reservation.phone}</div>
                                         <div className="mb-1" style={{ fontSize: '0.97em' }}><span style={{ fontWeight: 600, color: '#bfc4cc' }}>Date:</span> {reservation.date}</div>
@@ -105,6 +128,9 @@ function ReservationsList({ reservations, handleUpdate }) {
                     onCancel={() => setSelectedReservation(null)}
                     changeReservation={changeReservation}
                 />
+            )}
+            {notification && (
+                <Notification show={!!notification} onClose={() => setNotification(null)} type={notification.type} message={notification.message} />
             )}
         </>
     );

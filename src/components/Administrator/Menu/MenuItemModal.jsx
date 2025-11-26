@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { Modal, Button, Form } from 'react-bootstrap';
 
 // Modal for adding a new menu item
-function MenuItemModal({ show, onHide, addMenuItem, menuItems, setWarning }) {
+function MenuItemModal({ show, onHide, addMenuItem, menuItems, setNotification }) {
   // state to manage form inputs
   const [form, setForm] = useState({
     name: '',
@@ -54,15 +54,13 @@ function MenuItemModal({ show, onHide, addMenuItem, menuItems, setWarning }) {
         errorMessage += `- ${message}\n`;
       }
       
-      // set warning message
-      setWarning(errorMessage);
+      // set notification message
+      setNotification({ type: 'danger', message: errorMessage });
       return;
     }
 
-    // create new item with unique id
-    const itemWithId = { ...form, id: Math.floor(Math.random() * 1e9) };
     // add the new menu item
-    addMenuItem(itemWithId);
+    addMenuItem(form);
     // reset form state
     setForm({
       name: '',

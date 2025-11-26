@@ -1,33 +1,49 @@
 // import necessary modules and components
 import { useState, useEffect } from 'react';
 import { Card } from 'react-bootstrap';
+import axios from 'axios';
+import verifyAuth from '../../scripts/verifyAuth';
 
 // import ReservationsList component
 import ReservationsList from '../../components/Administrator/Reservations/ReservationsList';
-// import storage utility functions
-import {loadFromStorage, saveToStorage} from '../../scripts/StorageSaver';
+// import storage saver (keep save for local fallback on updates)
 
 // ReservationsManager component
 function ReservationsManager() {
   // state to hold reservations data
   const [reservations, setReservations] = useState([]);
 
-  // load reservations from local storage using useEffect
+  // load reservations from API (admin-only)
   useEffect(() => {
-    // Load reservations from local storage
-    const loadReservations = loadFromStorage('reservations');
-    // if reservations exist, set them to state
-    if (loadReservations) {
-      setReservations(loadReservations);
-    }
-  }, []);
+    async function fetchReservations() {
+      const authResult = await verifyAuth();
+      const token = authResult?.token || null;
+      if (!token) {
+        setReservations([]);
+        return;
+      }
 
-  // function to handle updates to reservations
-  const handleUpdate = (updatedReservations) => {
-    // update state and save to local storage
-    setReservations(updatedReservations);
-    saveToStorage('reservations', updatedReservations);
-  };
+      try {
+        const resp = await axios.get('http://localhost:5000/api/reservations/all', { headers: { Authorization: `Bearer ${token}` } });
+        let reservationsData = resp.data?.reservations || resp.data?.items || resp.data || [];
+
+        // Normalize DB fields status_response/status_reason into reservation.status
+        reservationsData = reservationsData.map(r => ({
+          ...r,
+          date: r.date.replace('T00:00:00.000Z', ''),
+          time: r.time.replace(':00.000Z', '').replace('1970-01-01T', ''),
+          status: r.status && typeof r.status === 'object' ? r.status : (r.status_response ? { response: r.status_response, reason: r.status_reason } : r.status)
+        }));
+
+        setReservations(reservationsData);
+      } catch (error) {
+        console.error('Error fetching reservations:', error);
+        setReservations([]);
+      }
+    }
+
+    fetchReservations();
+  }, []);
 
   // render the ReservationsManager component
   return (
@@ -46,7 +62,7 @@ function ReservationsManager() {
       </Card>
       <ReservationsList 
         reservations={reservations}
-        handleUpdate={handleUpdate}
+        setReservations={setReservations}
       />
     </>
   );

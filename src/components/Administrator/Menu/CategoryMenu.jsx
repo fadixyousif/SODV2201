@@ -2,22 +2,22 @@
 import { useState } from 'react';
 import { Modal, Button, Form, Card } from 'react-bootstrap';
 
-function CategoryMenu({ show, onHide, setShowCategoryModal, addCategory, menuItems, setWarning, removeCategory }) {
+function CategoryMenu({ show, onHide, setShowCategoryModal, addCategory, menuItems, setNotification, removeCategory }) {
   // state to manage new category name input
   const [categoryName, setCategoryName] = useState('');
   
   function validateCategoryName(name) {
     // simple validation: non-empty and not already existing
     if (!name.trim()) {
-      // set warning for empty category name
-      setWarning('Category name cannot be empty.');
+      // set notification for empty category name
+      setNotification({ type: 'danger', message: 'Category name cannot be empty.' });
       return false;
     }
 
     // check for duplicate category
     if (menuItems[name]) {
-      // set warning for duplicate category
-      setWarning('Category already exists.');
+      // set notification for duplicate category
+      setNotification({ type: 'danger', message: 'Category already exists.' });
       return false;
     }
 
@@ -31,8 +31,8 @@ function CategoryMenu({ show, onHide, setShowCategoryModal, addCategory, menuIte
       return;
     }
 
-    // clear any existing warnings
-    setWarning('');
+    // clear any existing notifications
+    setNotification(null);
     addCategory(categoryName);
     setCategoryName('');
   };
@@ -47,7 +47,6 @@ function CategoryMenu({ show, onHide, setShowCategoryModal, addCategory, menuIte
     removeCategory(category);
     onHide();
   }
-
   // render the category management modal
   return (
     /* 
@@ -68,7 +67,7 @@ function CategoryMenu({ show, onHide, setShowCategoryModal, addCategory, menuIte
                 value={categoryName}
                 onChange={(e) => {
                   setCategoryName(e.target.value);
-                  setWarning('');
+                  setNotification(null);
                 }}
                 autoFocus
               />

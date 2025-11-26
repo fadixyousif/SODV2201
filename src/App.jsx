@@ -33,7 +33,7 @@ function App() {
     // Load cart items from localStorage
     const storedCart = loadFromStorage("cartItems");
     // If there are stored cart items, set them to state
-    if (storedCart) {
+    if (Array.isArray(storedCart)) {
       setCartItems(storedCart);
     }
   }, []);

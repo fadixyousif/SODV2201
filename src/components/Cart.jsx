@@ -5,9 +5,11 @@ import { Offcanvas, ListGroup, Row, Col, Button, Image, Modal, Form } from "reac
 // import Notification component
 import Notification from "./Notification";
 import CartContext from "../scripts/cartContext";
+import axios from 'axios';
+import verifyAuth from '../scripts/verifyAuth';
 
 // import storage utility functions
-import { loadFromStorage, saveToStorage } from "../scripts/StorageSaver";
+import { loadFromStorage } from "../scripts/StorageSaver";
 
 function CheckoutModal({ showCheckout, setShowCheckout, getOrder, setOrder, handleCheckout }) {
   // render the checkout modal
@@ -47,6 +49,24 @@ function CheckoutModal({ showCheckout, setShowCheckout, getOrder, setOrder, hand
               <option value="dine-in">Dine In</option>
             </Form.Control>
           </Form.Group>
+          <Form.Group controlId="formEmail">
+            <Form.Label>Email</Form.Label>
+            <Form.Control
+              type="email"
+              placeholder="you@example.com"
+              value={getOrder.email}
+              onChange={(e) => setOrder({ ...getOrder, email: e.target.value })}
+            />
+          </Form.Group>
+          <Form.Group controlId="formPhone">
+            <Form.Label>Phone</Form.Label>
+            <Form.Control
+              type="tel"
+              placeholder="Phone number"
+              value={getOrder.phone}
+              onChange={(e) => setOrder({ ...getOrder, phone: e.target.value })}
+            />
+          </Form.Group>
           <Form.Group controlId="formOrderDate">
             <Form.Label>Date</Form.Label>
             <Form.Control
@@ -85,8 +105,9 @@ function Cart({ show, setShowCart }) {
   // checkout modal
   const [showCheckout, setShowCheckout] = useState(false);
   const [getOrder, setOrder] = useState({
-    id: "",
     customerName: "",
+    email: "",
+    phone: "",
     type: "",
     status: "pending",
     totalPrice: 0,
@@ -118,15 +139,35 @@ function Cart({ show, setShowCart }) {
 
   // form validation function
   function formValidation() {
+
     // check required fields
-    if (!getOrder.customerName || !getOrder.type || !getOrder.date || !getOrder.time) {
-      setNotification({ type: 'error', message: 'Please fill in all required fields.' });
+    if (!getOrder.customerName || !getOrder.email || !getOrder.phone || !getOrder.type || !getOrder.date || !getOrder.time) {
+      setNotification({ type: 'danger', message: 'Please fill in all required fields.' });
+      return false;
+    }
+    // simple email validation
+    const emailRe = /^\S+@\S+\.\S+$/;
+    if (!emailRe.test(getOrder.email)) {
+      setNotification({ type: 'danger', message: 'Please enter a valid email address.' });
+      return false;
+    }
+
+    // basic phone validation
+    if (getOrder.phone.trim().length < 6) {
+      setNotification({ type: 'danger', message: 'Please enter a valid phone number.' });
       return false;
     }
 
     // check date is not in the past
     if (new Date(getOrder.date) < new Date().setHours(0,0,0,0)) {
-      setNotification({ type: 'error', message: 'Order date cannot be in the past.' });
+      setNotification({ type: 'danger', message: 'Order date cannot be in the past.' });
+      return false;
+    }
+
+    // check time is valid (simple check)
+    const timeRe = /^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/;
+    if (!timeRe.test(getOrder.time)) {
+      setNotification({ type: 'danger', message: 'Please enter a valid time.' });
       return false;
     }
 
@@ -135,45 +176,55 @@ function Cart({ show, setShowCart }) {
     return true;
   }
 
-  // function to create a new order
-  function createOrder(newOrder) {
-    // add new order to existing orders
-    const updatedOrders = [...getOrders, newOrder];
-
-    // save updated orders to local storage and state
-    saveToStorage("orders", updatedOrders);
-    setOrders(updatedOrders);
-  }
-
-  function handleCheckout() {
-    
+  async function handleCheckout() {
     // validate form before proceeding
     if (!formValidation()) return;
-
     // close checkout modal
     setShowCheckout(false);
 
-    // prepare new order data with unique ID
+    // prepare new order data
     const newData = {
-      ...getOrder,
-      id: Math.floor(Math.random() * 1e9), // Use random number as a unique numeric string
+      customerName: getOrder.customerName,
+      email: getOrder.email,
+      phone: getOrder.phone,
       items: cartItems,
+      type: getOrder.type,
+      date: getOrder.date,
+      time: getOrder.time,
       totalPrice: cartItems.reduce((sum, item) => sum + (item.price * (item.qty || 1)), 0)
     };
-    // create the order
-    createOrder(newData);
-    setOrder({
-      customerName: "",
-      type: "",
-      status: "pending",
-      totalPrice: 0,
-      date: "",
-      time: "",
-      items: []
-    });
 
-    // empty the cart after checkout is complete
-    saveCartToStorage([]);
+    try {
+      // verify authentication for order placement
+      const authResult = await verifyAuth();
+
+      // prepare headers with token if authenticated
+      const token = authResult?.token || null;
+
+      // set authorization header if token exists
+      const headers = token ? { Authorization: `Bearer ${token}` } : {};
+
+      const resp = await axios.post('http://localhost:5000/api/orders/place', newData, { headers });
+      setNotification({ type: 'success', message: resp.data?.message || 'Order placed successfully' });
+
+      // reset form and clear cart
+      setOrder({
+        id: '',
+        customerName: '',
+        email: '',
+        phone: '',
+        type: '',
+        status: 'pending',
+        totalPrice: 0,
+        date: '',
+        time: '',
+        items: []
+      });
+      saveCartToStorage([]);
+    } catch (error) {
+      console.error('Error placing order:', error);
+      setNotification({ type: 'danger', message: error.response?.data?.message || 'Failed to place order' });
+    }
   }
   // Calculate total price
   const total = cartItems?.reduce((sum, item) => sum + (item.price * (item.qty || 1)), 0) || 0;

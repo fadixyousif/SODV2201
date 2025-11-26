@@ -1,7 +1,6 @@
 // import necessary modules and components
 import { useEffect, useState, useContext } from 'react';
-import { loadFromStorage, saveToStorage } from '../scripts/StorageSaver';
-import { Card, Button, Row, Col, Badge, Form, Spinner } from 'react-bootstrap';
+import { Card, Button, Row, Col, Badge, Form } from 'react-bootstrap';
 import verifyAuth from '../scripts/verifyAuth';
 
 // import custom components
@@ -223,33 +222,14 @@ function Reservations() {
       return;
     }
 
-    // // Add unique ID to the new reservation
-    // const newReservationWithId = { ...newReservation, id: Math.floor(Math.random() * 1e9) };
-    // const updatedReservations = [...myReservations, newReservationWithId];
-    // // Update state with new reservation
-    // setMyReservations(updatedReservations);
-    // // Clear the form
-    // saveToStorage('reservations', updatedReservations);
-    // setNewReservation({
-    //   id: "",
-    //   customerName: "",
-    //   email: "",
-    //   phone: "",
-    //   date: "",
-    //   time: "",
-    //   guests: "",
-    //   specialRequest: "",
-    //   status: {
-    //     response: "pending",
-    //     reason: ""
-    //   }
-    // });
-
-    // POST /api/reservations/create
-
+    // function to post reservation to server
     async function postReservation() {
+      // try to post reservation
       try {
+        // response variable will replace if user is authenticated or not
         let resp = null;
+
+        // prepare reservation data
         let newReservationData = {
           customerName: newReservation.customerName,
           email: newReservation.email,
@@ -259,19 +239,40 @@ function Reservations() {
           numberOfGuests: Number(newReservation.guests),
           specialRequest: newReservation.specialRequest
         }
+
+        // include auth token if user is authenticated if yes create with auth
         if (isUserAuthenticated.success) {
           resp = await axios.post("http://localhost:5000/api/reservations/create", newReservationData, {
             headers: { Authorization: `Bearer ${isUserAuthenticated.token}` }
           });
         } else {
+          // create reservation without auth
           resp = await axios.post("http://localhost:5000/api/reservations/create", newReservationData);
         }
 
+        // handle response
         if(resp.data && resp.data.success) {
+
+          // show success notification
           setNotification({
             message: resp.data.message || 'Reservation created successfully!',
             type: 'success'
           });
+
+          setMyReservations([...myReservations, {
+            id: resp.data.reservationId || '',
+            customerName: newReservationData.customerName,
+            email: newReservationData.email,
+            phone: newReservationData.phone,
+            date: newReservationData.reservationDate,
+            time: newReservationData.time,
+            guests: newReservationData.numberOfGuests,
+            specialRequest: newReservationData.specialRequest,
+            status: {
+              response: 'pending',
+              reason: ''
+            }
+          }]);
           // Clear the form
           setNewReservation({
             id: "",
@@ -288,6 +289,7 @@ function Reservations() {
             }
           });
         } else {
+          // show failure notification
           setNotification({
             message: resp.data.message || 'Failed to create reservation. Please try again.',
             type: 'danger'

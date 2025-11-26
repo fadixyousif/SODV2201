@@ -7,11 +7,9 @@ import axios from "axios";
 import Notification from "./Notification";
 
 // import storage helper functions
-import { saveToStorage, loadFromStorage } from "../scripts/StorageSaver";
+import { saveToStorage } from "../scripts/StorageSaver";
 
 function AuthModals({ showLogin, setShowLogin, showRegister, setShowRegister }) {
-  // Load authentication data
-  const authData = loadFromStorage("authData") || { };
 
   // Login state
   const [loginEmail, setLoginEmail] = useState("");

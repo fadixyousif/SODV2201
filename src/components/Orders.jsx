@@ -78,7 +78,6 @@ export function OrderDetailsModal({ show, onHide, order }) {
                         <div className="mb-2"><strong>Order ID:</strong> {order.id}</div>
                         <div className="mb-2"><strong>Status:</strong> {order.status ? order.status.charAt(0).toUpperCase() + order.status.slice(1) : 'Pending'}</div>
                         <div className="mb-2"><strong>Date:</strong> {order.date}</div>
-                        <div className="mb-2"><strong>Time:</strong> {order.time}</div>
                         <div className="mb-2"><strong>Type:</strong> {order.type}</div>
                         <div className="mb-2"><strong>Total:</strong> ${order.totalPrice?.toFixed(2)}</div>
                         <h5 className="mt-4 mb-3">Items</h5>

@@ -41,7 +41,6 @@ function Menu() {
     const categories = {}
     axios.get("http://localhost:5000/api/menu/items")
       .then(response => {
-        console.log("Menu items fetched:", response.data);
         for (const item of response.data.items) {
           if (!categories[item.category]) {
             categories[item.category] = [];
