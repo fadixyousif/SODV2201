@@ -1,3 +1,4 @@
+import jwt from 'jsonwebtoken';
 import express from 'express';
 import sql from '../db.js';
 import { verifyToken } from '../modules/authentication.js';
@@ -15,11 +16,13 @@ router.post('/place', async (req, res) => {
         try {
             const decoded = jwt.verify(token, process.env.JWT_SECRET_KEY); 
             req.tokenData = decoded; 
+            console.log("Token data:", req.tokenData);
         } catch (err) { 
             // invalid token, ignore and proceed as guest
         }
     }
-    const { customerName, email, phone, items } = req.body || {};
+
+    const { customerName, email, phone, items, date, time, type } = req.body || {};
     // validate required fields
     if (!customerName || !email || !phone || !items || !Array.isArray(items) || items.length === 0) {
         return res.status(400).json({
@@ -29,7 +32,7 @@ router.post('/place', async (req, res) => {
     }
 
     // validate order placement data
-    const validationResult = isOrderPlacementValid(customerName, email, phone, items);
+    const validationResult = isOrderPlacementValid(customerName, email, phone, items, date, time);
 
     if (!validationResult.success) {
         return res.status(400).json(validationResult);
@@ -50,9 +53,12 @@ router.post('/place', async (req, res) => {
         insertReq.input('email', sql.NVarChar(255), email);
         insertReq.input('phone', sql.NVarChar(30), phone);
         insertReq.input('items', sql.NVarChar(sql.MAX), JSON.stringify(items));
+        insertReq.input('type', sql.NVarChar(50), type ?? 'pickup');
         insertReq.input('status', sql.NVarChar(50), 'pending');
+        insertReq.input('date', sql.Date, date);
+        insertReq.input('time', sql.Time, new Date(`1970-01-01T${time}:00`));
         const result = await insertReq.query(
-            'INSERT INTO Orders (accountId, customerName, email, phone, items, status) VALUES (@accountId, @customerName, @email, @phone, @items, @status)'
+            'INSERT INTO Orders (accountId, customerName, email, phone, items, type, status, date, time) VALUES (@accountId, @customerName, @email, @phone, @items, @type, @status, @date, @time)'
         );
 
         if (result.rowsAffected[0] === 0) {
@@ -139,6 +145,7 @@ router.get('/myorders', verifyToken, async (req, res) => {
 // user cancel own order by modifying order status requiring authentication
 router.delete('/cancel/:id', verifyToken, async (req, res) => {
     const orderId = Number(req.params.id);
+    const { reason } = req.body || {};
 
     // validate orderId
     if (isNaN(orderId) || orderId <= 0) {
@@ -149,15 +156,17 @@ router.delete('/cancel/:id', verifyToken, async (req, res) => {
     }
 
     try {
-        // update the order status to 'cancelled'
+        // update the order status to 'cancelled' and optionally set a reason
         const updReq = new sql.Request();
+        updReq.input('status', sql.NVarChar(50), 'cancelled');
+        updReq.input('reason', sql.NVarChar(sql.MAX), reason ?? null);
         updReq.input('id', sql.Int, orderId);
         updReq.input('accountId', sql.Int, req.tokenData.id);
-        const result = await updReq.query('UPDATE Orders SET status = @status WHERE id = @id AND accountId = @accountId', { status: 'cancelled' });
+        const result = await updReq.query('UPDATE Orders SET status = @status, reason = @reason WHERE id = @id AND accountId = @accountId');
 
         // check if update was successful
         if (result.rowsAffected[0] === 0) {
-            return res.status(500).json({
+            return res.status(404).json({
                 success: false,
                 message: 'Order not found or you do not have permission to cancel this order'
             });
@@ -222,7 +231,7 @@ router.put('/update/:id', verifyToken, async (req, res) => {
     }
 
     const orderId = Number(req.params.id);
-    const { status } = req.body || {};
+    const { status, reason } = req.body || {};
 
     // validate orderId
     if (isNaN(orderId) || orderId <= 0) {
@@ -233,7 +242,7 @@ router.put('/update/:id', verifyToken, async (req, res) => {
     }
 
     // validate status
-    const validStatuses = ['pending', 'processing', 'completed', 'cancelled'];
+    const validStatuses = ['pending','confirmed','preparing','ready','out-for-delivery','delivered','completed','cancelled'];
     if (!status || !validStatuses.includes(status.toLowerCase())) {
         return res.status(400).json({
             success: false,
@@ -242,15 +251,17 @@ router.put('/update/:id', verifyToken, async (req, res) => {
     }
 
     try {
-        // update the order status
+        // update the order status and optional reason
         const updReq = new sql.Request();
-        updReq.input('status', sql.NVarChar(50), status.toLowerCase());
+        const statusLower = status.toLowerCase();
+        updReq.input('status', sql.NVarChar(50), statusLower);
+        updReq.input('reason', sql.NVarChar(sql.MAX), reason ?? null);
         updReq.input('id', sql.Int, orderId);
-        const result = await updReq.query('UPDATE Orders SET status = @status WHERE id = @id');
+        const result = await updReq.query('UPDATE Orders SET status = @status, reason = @reason WHERE id = @id');
 
-        // check if update was successful if not send 404
+        // check if update was successful
         if (result.rowsAffected[0] === 0) {
-            return res.status(500).json({
+            return res.status(404).json({
                 success: false,
                 message: 'Order not found'
             });

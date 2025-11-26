@@ -31,15 +31,15 @@ export function isRegisterationValid(fullname, password, email) {
 }
 
 // menu item validation
-export function isMenuItemValid(name, categoryId, price, description, available) {
+export function isMenuItemValid(name, categoryName, price, description, available) {
     // check name length between 3 and 100 characters
     if (!name || name.length < 3 || name.length > 100) {
         return { message: 'Item name must be between 3 and 100 characters', success: false };
     }
 
-    // check categoryId is a positive integer
-    if (isNaN(categoryId) || categoryId <= 0) {
-        return { message: 'Invalid category ID', success: false };
+    // check categoryName is a non-empty string
+    if (!categoryName || typeof categoryName !== 'string' || categoryName.trim() === '') {
+        return { message: 'Invalid category name', success: false };
     }
 
     // check price if it's not a number or negative
@@ -61,7 +61,7 @@ export function isMenuItemValid(name, categoryId, price, description, available)
 }
 
 // Order placement validation
-export function isOrderPlacementValid(customerName, email, phone, items) {
+export function isOrderPlacementValid(customerName, email, phone, items, date, time) {
   // check customerName length between 3 and 100 characters
   if (!customerName || customerName.length < 3 || customerName.length > 100) {
       return { message: 'Customer name must be between 3 and 100 characters', success: false };
@@ -82,6 +82,16 @@ export function isOrderPlacementValid(customerName, email, phone, items) {
       return { message: 'Order must contain at least one item', success: false };
   }
 
+  // date validation if it's in the past return false
+  if (!date || isNaN(new Date(date).getTime()) || new Date(date) < new Date()) {
+      return { message: 'Invalid order date', success: false };
+  }
+
+  // time validation if it's not in HH:MM format return false
+  const timeRegex = /^([0-1]\d|2[0-3]):([0-5]\d)$/;
+  if (!time || !timeRegex.test(time)) {
+      return { message: 'Invalid order time format', success: false };
+  }
   // if none of the checks failed return success
   return { success: true };
 }

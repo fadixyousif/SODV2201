@@ -1,5 +1,5 @@
-import express from 'express';
 import jwt from 'jsonwebtoken';
+import express from 'express';
 import sql from '../db.js';
 import { verifyToken } from '../modules/authentication.js';
 import { isReservationValid } from '../modules/validation.js';
@@ -71,7 +71,7 @@ router.post('/create', async (req, res) => {
         insertReq.input('guests', sql.Int, Number(numberOfGuests));
         insertReq.input('specialRequest', sql.NVarChar(200), req.body.specialRequest || null);
         const result = await insertReq.query(
-            'INSERT INTO Reservations (accountId, customerName, email, phone, date, time, guests, specialRequest) VALUES (@accountId, @customerName, @email, @phone, @date, @time, @guests, @specialRequest)'
+            'INSERT INTO Reservations (accountId, customerName, email, phone, date, time, guests, specialRequest) OUTPUT INSERTED.id VALUES (@accountId, @customerName, @email, @phone, @date, @time, @guests, @specialRequest)'
         );
 
         // check if insert was successful if not send 500 error
@@ -80,7 +80,8 @@ router.post('/create', async (req, res) => {
         }
 
         // successful reservation creation
-        return res.status(201).json({ success: true, message: 'Reservation created successfully' });
+        const insertedId = result.recordset && result.recordset.length ? result.recordset[0].id : null;
+        return res.status(201).json({ success: true, message: 'Reservation created successfully', reservationId: insertedId });
     } catch (error) {
         console.error('Error creating reservation:', error);
         return res.status(500).json({ success: false, message: 'Internal server error' });

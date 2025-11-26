@@ -49,6 +49,43 @@ router.get('/items', async (req, res) => {
     
 });
 
+// get categories requiring authentication and administration check
+router.get('/categories', verifyToken, async (req, res) => {
+    // check if user is administrator
+    if (!await isAdministrator(sql, req.tokenData.email)) {
+        return res.status(403).json({
+            success: false,
+            message: 'Forbidden: Administrator access required'
+        });
+    }
+    try {
+        // query to get categories
+        const catReq = new sql.Request();
+        const result = await catReq.query('SELECT id, name FROM Categories');
+
+        // check if any categories found if yes return 404
+        if (result.recordset.length === 0) {
+            return res.status(404).json({
+                success: false,
+                message: 'No categories found'
+            });
+        }
+
+        // return the categories
+        return res.status(200).json({
+            success: true,
+            categories: result.recordset
+        });
+    } catch (error) {
+        // handle errors
+        console.error('Error fetching categories:', error);
+        return res.status(500).json({
+            success: false,
+            message: 'Internal server error'
+        });
+    }
+});
+
 // create categories requiring authentication
 router.post('/create/category', verifyToken, async (req, res) => {
     // check if user is administrator
@@ -124,10 +161,10 @@ router.post('/create/item', verifyToken, async (req, res) => {
     }
 
     // get menu item data from request body
-    const { name, categoryId, price, description, imageUrl, available } = req.body || {};
+    const { name, categoryName, price, description, imageUrl, available } = req.body || {};
 
     // check for missing required fields
-    if (!name || !categoryId || !price || available === undefined) {
+    if (!name || !categoryName || !price || available === undefined) {
         return res.status(400).json({
             success: false,
             message: 'Missing required fields'
@@ -135,23 +172,27 @@ router.post('/create/item', verifyToken, async (req, res) => {
     }
 
     // validate menu item data
-    const validationResult = isMenuItemValid(name, categoryId, price, description, available);
+    const validationResult = isMenuItemValid(name, categoryName, price, description, available);
     if (!validationResult.success) {
         return res.status(400).json(validationResult);
     }
 
+    const categoryNameLower = categoryName.toLowerCase();
+
     try {
         // check if category exists
-        if (!await checkCategoryExists(sql, categoryId)) {
+        const isCategoryExists = await checkCategoryExists(sql, categoryNameLower);
+        if (!isCategoryExists.success) {
             return res.status(400).json({
                 success: false,
                 message: 'Category does not exist'
             });
         }
+
         // insert new menu item
         const insertItemReq = new sql.Request();
         insertItemReq.input('name', sql.NVarChar(100), name);
-        insertItemReq.input('categoryId', sql.Int, Number(categoryId));
+        insertItemReq.input('categoryId', sql.Int, Number(isCategoryExists.id));
         insertItemReq.input('price', sql.Decimal(10,2), price);
         insertItemReq.input('description', sql.NVarChar(300), description || null);
         insertItemReq.input('imageUrl', sql.NVarChar(300), imageUrl || null);
@@ -184,7 +225,7 @@ router.post('/create/item', verifyToken, async (req, res) => {
 });
 
 // delete categories requiring authentication
-router.delete('/category/delete/:id', verifyToken, async (req, res) => {
+router.delete('/category/delete/:name', verifyToken, async (req, res) => {
     if (!await isAdministrator(sql, req.tokenData.email)) {
         return res.status(403).json({
             success: false,
@@ -192,19 +233,20 @@ router.delete('/category/delete/:id', verifyToken, async (req, res) => {
         });
     }
 
-    const categoryId = Number(req.params.id);
+    const categoryName = req.params.name.toLocaleLowerCase();
 
-    // validate categoryId
-    if (isNaN(categoryId) || categoryId <= 0) {
+    // validate categoryName
+    if (!categoryName || typeof categoryName !== 'string' || categoryName.trim() === '') {
         return res.status(400).json({
             success: false,
-            message: 'Invalid category ID'
+            message: 'Invalid category name'
         });
     }
 
     try {
         // check if category exists
-        if (!await checkCategoryExists(sql, categoryId)) {
+        const isCategoryExists = await checkCategoryExists(sql, categoryName);
+        if (!isCategoryExists.success) {
             return res.status(404).json({
                 success: false,
                 message: 'Category not found'
@@ -212,7 +254,7 @@ router.delete('/category/delete/:id', verifyToken, async (req, res) => {
         }
 
         // check if category has associated menu items
-        if (await hasMenuItems(sql, categoryId)) {
+        if (await hasMenuItems(sql, categoryName)) {
             return res.status(400).json({
                 success: false,
                 message: 'Cannot delete category with associated menu items'
@@ -220,7 +262,7 @@ router.delete('/category/delete/:id', verifyToken, async (req, res) => {
         }
         // delete the category
         const delCatReq = new sql.Request();
-        delCatReq.input('id', sql.Int, categoryId);
+        delCatReq.input('id', sql.Int, Number(isCategoryExists.id));
         const result = await delCatReq.query('DELETE FROM Categories WHERE id = @id');
 
         // check if delete was successful
@@ -297,6 +339,7 @@ router.delete('/item/delete/:id', verifyToken, async (req, res) => {
 
 // update menu items requiring authentication
 router.put('/update/:id', verifyToken, async (req, res) => {
+    // check if user is administrator
     if (!await isAdministrator(sql, req.tokenData.email)) {
         return res.status(403).json({
             success: false,
@@ -304,8 +347,9 @@ router.put('/update/:id', verifyToken, async (req, res) => {
         });
     }
 
+    // get menu item data from request body
     const itemId = Number(req.params.id);
-    const { name, categoryId, price, description, imageUrl, available } = req.body || {};
+    const { name, categoryName, price, description, imageUrl, available } = req.body || {};
 
     // validate itemId
     if (isNaN(itemId) || itemId <= 0) {
@@ -316,7 +360,7 @@ router.put('/update/:id', verifyToken, async (req, res) => {
     }
 
     // validate menu item data
-    const validationResult = isMenuItemValid(name, categoryId, price, description, available);
+    const validationResult = isMenuItemValid(name, categoryName, price, description, available);
 
     if (!validationResult.success) {
         return res.status(400).json(validationResult);
@@ -324,7 +368,8 @@ router.put('/update/:id', verifyToken, async (req, res) => {
 
     try {
         // check if category exists
-        if (!await checkCategoryExists(sql, categoryId)) {
+        const isCategoryExists = await checkCategoryExists(sql, categoryName.toLowerCase());
+        if (!isCategoryExists.success) {
             return res.status(400).json({
                 success: false,
                 message: 'Category does not exist'
@@ -334,7 +379,7 @@ router.put('/update/:id', verifyToken, async (req, res) => {
         // update the menu item
         const updReq = new sql.Request();
         updReq.input('name', sql.NVarChar(100), name);
-        updReq.input('categoryId', sql.Int, Number(categoryId));
+        updReq.input('categoryId', sql.Int, Number(isCategoryExists.id));
         updReq.input('price', sql.Decimal(10,2), price);
         updReq.input('description', sql.NVarChar(300), description || null);
         updReq.input('imageUrl', sql.NVarChar(300), imageUrl || null);

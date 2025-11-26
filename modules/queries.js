@@ -30,14 +30,14 @@ export async function categoriesDuplicateCheck(sql, name) {
 }
 
 // check if menu item with same name exists
-export async function checkCategoryExists(sql, categoryId) {
+export async function checkCategoryExists(sql, categoryName) {
     try {
         // query to check if category exists
         const req = new sql.Request();
-        req.input('categoryId', sql.Int, categoryId);
-        const result = await req.query('SELECT COUNT(*) AS count FROM Categories WHERE id = @categoryId');
-        // return true if count > 0
-        return result.recordset[0].count > 0;
+        req.input('categoryName', sql.NVarChar(50), categoryName.toLowerCase());
+        const result = await req.query('SELECT id FROM Categories WHERE LOWER(name) = @categoryName');
+        // return true if found and include id
+        return result.recordset.length > 0 ? { success: true, id: result.recordset[0].id } : { success: false };
     } catch (err) {
         // handle errors
         console.error("Database query error:", err);
@@ -62,11 +62,11 @@ export async function isAdministrator(sql, email) {
 }
 
 // check if category has associated menu items
-export async function hasMenuItems(sql, categoryId) {
+export async function hasMenuItems(sql, categoryName) {
     try {
         const req = new sql.Request();
-        req.input('categoryId', sql.Int, categoryId);
-        const result = await req.query('SELECT COUNT(*) AS count FROM MenuItems WHERE categoryId = @categoryId');
+        req.input('categoryName', sql.NVarChar(50), categoryName.toLowerCase());
+        const result = await req.query('SELECT COUNT(*) AS count FROM MenuItems mi JOIN Categories c ON mi.categoryId = c.id WHERE LOWER(c.name) = @categoryName');
         return result.recordset[0].count > 0;
     } catch (err) {
         console.error("Database query error:", err);
