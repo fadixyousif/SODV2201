@@ -7,6 +7,7 @@ import authRouter from './routes/auth.js';
 import menuRouter from './routes/menu.js';
 import ordersRouter from './routes/orders.js';
 import reservationsRouter from './routes/reservations.js';
+import aiRouter from './routes/ai.js';
 
 // create an express application
 const app = express();
@@ -20,6 +21,7 @@ app.use('/api/auth', authRouter);
 app.use('/api/menu', menuRouter);
 app.use('/api/orders', ordersRouter);
 app.use('/api/reservations', reservationsRouter);
+app.use('/api/ai', aiRouter);
 
 // return a 404 for any undefined routes
 app.use((req, res) => {

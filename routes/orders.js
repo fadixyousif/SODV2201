@@ -16,7 +16,6 @@ router.post('/place', async (req, res) => {
         try {
             const decoded = jwt.verify(token, process.env.JWT_SECRET_KEY); 
             req.tokenData = decoded; 
-            console.log("Token data:", req.tokenData);
         } catch (err) { 
             // invalid token, ignore and proceed as guest
         }
