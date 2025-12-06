@@ -1,6 +1,7 @@
 // import necessary modules and components
 import { useEffect, useState } from "react";
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
+import { Button } from 'react-bootstrap';
 
 // General Pages
 import Home from './pages/Home';
@@ -13,6 +14,9 @@ import Administrator from './pages/Administrator/Administrator';
 import MenuManager from "./pages/Administrator/MenuManager";
 import OrdersManager from "./pages/Administrator/OrdersManager";
 import ReservationsManager from "./pages/Administrator/ReservationsManager";
+
+// Components
+import AIChatbot from './components/AIChatbot';
 
 // cartContext
 import CartContext from './scripts/cartContext';
@@ -27,6 +31,8 @@ import 'bootstrap/dist/css/bootstrap.min.css';
 function App() {
   // State to hold cart items
   const [cartItems, setCartItems] = useState([]);
+  // State for Chatbot visibility
+  const [showChatbot, setShowChatbot] = useState(false);
   
   // Load cart items from localStorage using useEffect
   useEffect(() => {
@@ -59,6 +65,31 @@ function App() {
           <Route path="/menu" element={<Menu />} />
           <Route path="/orders" element={<Orders />} />
         </Routes>
+
+        {/* Floating Chatbot Button - Global */}
+        <div style={{
+          position: "fixed",
+          bottom: "100px",
+          right: "32px",
+          zIndex: 1000
+        }}>
+          <Button
+            variant="primary"
+            style={{
+              borderRadius: "50%",
+              width: "60px",
+              height: "60px",
+              fontSize: "1.5rem",
+              boxShadow: "0 4px 16px rgba(0,0,0,0.2)",
+              position: "relative"
+            }}
+            onClick={() => setShowChatbot(true)}
+          >
+            🤖
+          </Button>
+        </div>
+        <AIChatbot show={showChatbot} setShow={setShowChatbot} />
+
       </Router>
     </CartContext.Provider>
   );
